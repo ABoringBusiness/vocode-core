@@ -1,0 +1,12 @@
+vocode
+fastapi>=0.95.0
+uvicorn>=0.21.1
+python-dotenv>=1.0.0
+redis>=4.5.4
+supabase>=1.0.3
+openai>=0.27.0
+deepgram-sdk>=2.11.0
+elevenlabs>=0.2.24
+aiohttp>=3.8.4
+pydantic>=1.10.7
+loguru>=0.7.0

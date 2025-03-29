@@ -1,0 +1,9 @@
+<extension name="vocode_ai">
+  <condition field="destination_number" expression="^(AI\d+)$">
+    <action application="answer"/>
+    <action application="set" data="hangup_after_bridge=true"/>
+    <action application="set" data="continue_on_fail=true"/>
+    <action application="set" data="api_hangup_hook=curl -X POST http://vocode-app:8000/freeswitch_event -d 'Event-Name=CHANNEL_HANGUP&Unique-ID=${uuid}'"/>
+    <action application="socket" data="ws://vocode-app:8000/inbound_call?to=${destination_number}&from=${caller_id_number}&uuid=${uuid}"/>
+  </condition>
+</extension>

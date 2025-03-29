@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # FreeSWITCH server
+  freeswitch:
+    image: signalwire/freeswitch:latest
+    container_name: vocode-freeswitch
+    ports:
+      - "5060:5060/udp"  # SIP
+      - "5080:5080/tcp"  # SIP over WebSocket
+      - "8021:8021/tcp"  # ESL
+      - "16384-16484:16384-16484/udp"  # RTP
+    volumes:
+      - ./freeswitch/conf:/etc/freeswitch
+    environment:
+      - FREESWITCH_PASSWORD=ClueCon
+    restart: unless-stopped
+    networks:
+      - vocode-network
+
+  # Redis for configuration management
+  redis:
+    image: redis:alpine
+    container_name: vocode-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - vocode-network
+
+  # Vocode application with FreeSWITCH integration
+  vocode-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vocode-app
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - FREESWITCH_ESL_HOST=freeswitch
+      - FREESWITCH_ESL_PORT=8021
+      - FREESWITCH_ESL_PASSWORD=ClueCon
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BASE_URL=${BASE_URL:-localhost:8000}
+    depends_on:
+      - redis
+      - freeswitch
+    restart: unless-stopped
+    networks:
+      - vocode-network
+
+  # Optional: Supabase local development
+  supabase-db:
+    image: supabase/postgres:latest
+    container_name: vocode-supabase-db
+    ports:
+      - "5432:5432"
+    volumes:
+      - supabase-db-data:/var/lib/postgresql/data
+      - ./supabase/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    restart: unless-stopped
+    networks:
+      - vocode-network
+
+volumes:
+  redis-data:
+  supabase-db-data:
+
+networks:
+  vocode-network:
+    driver: bridge
