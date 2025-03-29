@@ -46,6 +46,14 @@ class FreeSwitchConfig(TelephonyProviderConfig):
     auth_password: str
 
 
+class FreeSwitchESLConfig(FreeSwitchConfig):
+    """Configuration for FreeSwitchESLClient"""
+    esl_host: str = "localhost"
+    esl_port: int = 8021
+    esl_password: str = "ClueCon"
+    esl_timeout: int = 30
+
+
 class CallEntity(BaseModel):
     phone_number: str
 
@@ -99,6 +107,7 @@ class CallConfigType(str, Enum):
     TWILIO = "call_config_twilio"
     VONAGE = "call_config_vonage"
     FREESWITCH = "call_config_freeswitch"
+    FREESWITCH_ESL = "call_config_freeswitch_esl"
 
 
 PhoneCallDirection = Literal["inbound", "outbound"]
@@ -195,4 +204,28 @@ class FreeSwitchCallConfig(BaseCallConfig, type=CallConfigType.FREESWITCH.value)
         )
 
 
-TelephonyConfig = Union[TwilioConfig, VonageConfig, FreeSwitchConfig]
+class FreeSwitchESLCallConfig(BaseCallConfig, type=CallConfigType.FREESWITCH_ESL.value):  # type: ignore
+    freeswitch_config: FreeSwitchESLConfig
+    freeswitch_uuid: str
+    output_to_speaker: bool = False
+
+    @staticmethod
+    def default_transcriber_config():
+        return DeepgramTranscriberConfig(
+            sampling_rate=FREESWITCH_SAMPLING_RATE,
+            audio_encoding=FREESWITCH_AUDIO_ENCODING,
+            chunk_size=FREESWITCH_CHUNK_SIZE,
+            model="phonecall",
+            tier="nova",
+            endpointing_config=PunctuationEndpointingConfig(),
+        )
+
+    @staticmethod
+    def default_synthesizer_config():
+        return AzureSynthesizerConfig(
+            sampling_rate=FREESWITCH_SAMPLING_RATE,
+            audio_encoding=FREESWITCH_AUDIO_ENCODING,
+        )
+
+
+TelephonyConfig = Union[TwilioConfig, VonageConfig, FreeSwitchConfig, FreeSwitchESLConfig]
