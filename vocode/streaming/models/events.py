@@ -18,6 +18,7 @@ class EventType(str, Enum):
     PHONE_CALL_CONNECTED = "event_phone_call_connected"
     PHONE_CALL_ENDED = "event_phone_call_ended"
     PHONE_CALL_DID_NOT_CONNECT = "event_phone_call_did_not_connect"
+    PHONE_CALL_TRANSFERRED = "event_phone_call_transferred"
     RECORDING = "event_recording"
     ACTION = "event_action"
 
@@ -46,3 +47,9 @@ class RecordingEvent(Event, type=EventType.RECORDING):  # type: ignore
 class ActionEvent(Event, type=EventType.ACTION):  # type: ignore
     action_input: Optional[dict] = None
     action_output: Optional[dict] = None
+    
+    
+class PhoneCallTransferredEvent(Event, type=EventType.PHONE_CALL_TRANSFERRED):  # type: ignore
+    destination: str
+    transfer_type: str
+    success: bool

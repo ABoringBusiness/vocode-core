@@ -221,12 +221,20 @@ class BarkSynthesizerConfig(SynthesizerConfig, type=SynthesizerType.BARK.value):
 DEFAULT_POLLY_LANGUAGE_CODE = "en-US"
 DEFAULT_POLLY_VOICE_ID = "Matthew"
 DEFAULT_POLLY_SAMPLING_RATE = SamplingRate.RATE_16000.value
+DEFAULT_POLLY_ENGINE = "neural"
+DEFAULT_POLLY_REGION = "us-east-1"
 
 
-class PollySynthesizerConfig(SynthesizerConfig, type=SynthesizerType.POLLY.value):  # type: ignore
+class AWSPollySynthesizerConfig(SynthesizerConfig, type=SynthesizerType.POLLY.value):  # type: ignore
     language_code: str = DEFAULT_POLLY_LANGUAGE_CODE
     voice_id: str = DEFAULT_POLLY_VOICE_ID
     sampling_rate: int = DEFAULT_POLLY_SAMPLING_RATE
+    engine: Literal["standard", "neural", "long-form"] = DEFAULT_POLLY_ENGINE
+    aws_region: str = DEFAULT_POLLY_REGION
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
+    use_ssml: bool = False
+    use_sentiment: bool = True
 
 
 DEFAULT_CARTESIA_MODEL_ID = "sonic-english"

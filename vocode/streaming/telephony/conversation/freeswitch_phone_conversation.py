@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Union
 
 from loguru import logger
 
@@ -13,6 +13,9 @@ from vocode.streaming.synthesizer.default_factory import DefaultSynthesizerFacto
 from vocode.streaming.telephony.config_manager.base_config_manager import BaseConfigManager
 from vocode.streaming.telephony.conversation.abstract_phone_conversation import (
     AbstractPhoneConversation,
+)
+from vocode.streaming.telephony.conversation.freeswitch_call_transfer import (
+    CallTransferManager, TransferType
 )
 from vocode.streaming.telephony.constants import FREESWITCH_AUDIO_ENCODING, MULAW_SILENCE_BYTE
 from vocode.streaming.transcriber.abstract_factory import AbstractTranscriberFactory
@@ -60,6 +63,73 @@ class FreeSwitchPhoneConversation(AbstractPhoneConversation):
         self.output_to_speaker = output_to_speaker
         self.audio_encoding = FREESWITCH_AUDIO_ENCODING
         self.silence_byte = MULAW_SILENCE_BYTE
+        
+        # Initialize call transfer manager
+        self.transfer_manager = CallTransferManager(
+            call_uuid=self.freeswitch_uuid,
+            client=None,  # Will be initialized when needed
+            conversation_id=self.conversation_id,
+            event_publisher=events_manager
+        )
 
     def get_telephony_config(self):
         return self.freeswitch_config
+        
+    async def transfer_call(
+        self,
+        destination: str,
+        transfer_type: Union[TransferType, str] = TransferType.BLIND,
+        caller_id: Optional[str] = None,
+        timeout_seconds: int = 60,
+        transfer_headers: Optional[Dict[str, str]] = None,
+    ) -> bool:
+        """
+        Transfer the current call to another destination
+        
+        Args:
+            destination: The destination number or SIP URI
+            transfer_type: The type of transfer (blind, attended, warm)
+            caller_id: The caller ID to use for the transfer leg
+            timeout_seconds: Timeout in seconds for attended/warm transfers
+            transfer_headers: Additional SIP headers for the transfer
+            
+        Returns:
+            bool: True if transfer was successful, False otherwise
+        """
+        # Initialize client if needed
+        if self.transfer_manager.client is None:
+            from vocode.streaming.telephony.client.freeswitch_client import FreeSwitchClient
+            self.transfer_manager.client = FreeSwitchClient(
+                base_url=self.base_url,
+                maybe_freeswitch_config=self.freeswitch_config
+            )
+            
+        # Convert string to enum if needed
+        if isinstance(transfer_type, str):
+            transfer_type = TransferType(transfer_type)
+            
+        return await self.transfer_manager.transfer_call(
+            destination=destination,
+            transfer_type=transfer_type,
+            caller_id=caller_id,
+            timeout_seconds=timeout_seconds,
+            transfer_headers=transfer_headers
+        )
+        
+    async def complete_warm_transfer(self) -> bool:
+        """
+        Complete a warm transfer by removing the original agent from the conference
+        """
+        return await self.transfer_manager.complete_warm_transfer()
+        
+    async def cancel_transfer(self) -> bool:
+        """
+        Cancel an in-progress transfer
+        """
+        return await self.transfer_manager.cancel_transfer()
+        
+    async def terminate(self):
+        """Terminate the conversation"""
+        # Cancel any in-progress transfers before terminating
+        await self.transfer_manager.cancel_transfer()
+        await super().terminate()
