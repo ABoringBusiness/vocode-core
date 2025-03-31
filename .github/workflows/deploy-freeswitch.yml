@@ -1,0 +1,114 @@
+name: Deploy FreeSWITCH Integration to Hetzner
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up SSH key
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        
+    - name: Install Hetzner CLI
+      run: |
+        wget -O hcloud.tar.gz https://github.com/hetznercloud/cli/releases/latest/download/hcloud-linux-amd64.tar.gz
+        tar -xzf hcloud.tar.gz
+        chmod +x hcloud
+        sudo mv hcloud /usr/local/bin/
+        
+    - name: Configure Hetzner CLI
+      run: |
+        hcloud context create github-actions -t ${{ secrets.HETZNER_API_TOKEN }}
+        
+    - name: Check for existing server
+      id: check_server
+      run: |
+        SERVER_EXISTS=$(hcloud server list -o noheader | grep -c "vocode-freeswitch-${{ github.event.inputs.environment }}" || true)
+        echo "server_exists=$SERVER_EXISTS" >> $GITHUB_OUTPUT
+        
+    - name: Create server if it doesn't exist
+      if: steps.check_server.outputs.server_exists == '0'
+      run: |
+        hcloud server create \
+          --name vocode-freeswitch-${{ github.event.inputs.environment }} \
+          --type cx21 \
+          --image ubuntu-22.04 \
+          --ssh-key github-actions \
+          --location nbg1
+          
+        # Wait for server to be ready
+        sleep 30
+        
+    - name: Get server IP
+      id: server_ip
+      run: |
+        SERVER_IP=$(hcloud server describe vocode-freeswitch-${{ github.event.inputs.environment }} -o json | jq -r '.public_net.ipv4.ip')
+        echo "ip=$SERVER_IP" >> $GITHUB_OUTPUT
+        
+    - name: Add server to known hosts
+      run: |
+        ssh-keyscan -H ${{ steps.server_ip.outputs.ip }} >> ~/.ssh/known_hosts
+        
+    - name: Install Docker on server
+      run: |
+        ssh root@${{ steps.server_ip.outputs.ip }} '
+          if ! command -v docker &> /dev/null; then
+            apt-get update
+            apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+            add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+            apt-get update
+            apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+          fi
+        '
+        
+    - name: Copy Docker Compose files
+      run: |
+        scp -r examples/freeswitch_docker root@${{ steps.server_ip.outputs.ip }}:/root/vocode-freeswitch
+        
+    - name: Configure environment
+      run: |
+        ssh root@${{ steps.server_ip.outputs.ip }} '
+          cd /root/vocode-freeswitch
+          cp .env.example .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "BASE_URL=${{ steps.server_ip.outputs.ip }}:8000" >> .env
+        '
+        
+    - name: Deploy with Docker Compose
+      run: |
+        ssh root@${{ steps.server_ip.outputs.ip }} '
+          cd /root/vocode-freeswitch
+          docker compose pull
+          docker compose up -d
+        '
+        
+    - name: Verify deployment
+      run: |
+        ssh root@${{ steps.server_ip.outputs.ip }} '
+          docker compose ps
+          echo "Deployment successful! FreeSWITCH is running at ${{ steps.server_ip.outputs.ip }}"
+        '
+        
+    - name: Output server information
+      run: |
+        echo "::notice::FreeSWITCH server deployed at ${{ steps.server_ip.outputs.ip }}"
+        echo "::notice::API endpoint: http://${{ steps.server_ip.outputs.ip }}:8000"
+        echo "::notice::ESL port: ${{ steps.server_ip.outputs.ip }}:8021"
