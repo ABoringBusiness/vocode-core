@@ -1,0 +1,126 @@
+name: Test FreeSWITCH Integration
+
+on:
+  push:
+    branches: [ main, add-freeswitch-integration ]
+    paths:
+      - 'vocode/streaming/telephony/client/freeswitch_client.py'
+      - 'vocode/streaming/telephony/client/freeswitch_esl_client.py'
+      - 'vocode/streaming/telephony/conversation/freeswitch_phone_conversation.py'
+      - 'vocode/streaming/telephony/conversation/freeswitch_esl_conversation.py'
+      - 'vocode/streaming/models/telephony.py'
+      - 'tests/streaming/telephony/freeswitch/**'
+      - '.github/workflows/test-freeswitch.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'vocode/streaming/telephony/client/freeswitch_client.py'
+      - 'vocode/streaming/telephony/client/freeswitch_esl_client.py'
+      - 'vocode/streaming/telephony/conversation/freeswitch_phone_conversation.py'
+      - 'vocode/streaming/telephony/conversation/freeswitch_esl_conversation.py'
+      - 'vocode/streaming/models/telephony.py'
+      - 'tests/streaming/telephony/freeswitch/**'
+      - '.github/workflows/test-freeswitch.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, '3.10']
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-asyncio
+        pip install -e ".[dev]"
+        
+    - name: Install FreeSWITCH ESL mock
+      run: |
+        # Create a mock ESL module for testing
+        mkdir -p /tmp/ESL
+        cat > /tmp/ESL/__init__.py << 'EOF'
+        class ESLconnection:
+            def __init__(self, host, port, password):
+                self.host = host
+                self.port = port
+                self.password = password
+                self._connected = True
+                
+            def connected(self):
+                return self._connected
+                
+            def api(self, command):
+                # Mock response for different commands
+                if command.startswith("originate"):
+                    return ESLEvent(body="uuid-123")
+                elif command.startswith("uuid_kill"):
+                    return ESLEvent(body="OK")
+                else:
+                    return ESLEvent(body="Unknown command")
+                    
+            def events(self, event_type, event_name):
+                pass
+                
+            def recvEvent(self):
+                return None
+
+        class ESLEvent:
+            def __init__(self, body="", headers=None):
+                self.body = body
+                self.headers = headers or {}
+                
+            def getBody(self):
+                return self.body
+                
+            def getHeader(self, name):
+                return self.headers.get(name)
+        EOF
+        
+        # Add the mock to Python path
+        echo "/tmp" > $(python -c "import site; print(site.getsitepackages()[0])")/esl.pth
+        
+    - name: Run tests
+      run: |
+        pytest tests/streaming/telephony/freeswitch -v
+        
+    - name: Run integration tests with Docker
+      if: matrix.python-version == '3.10'
+      run: |
+        # Set up Docker containers for integration testing
+        cd examples/freeswitch_docker
+        docker-compose up -d freeswitch redis
+        
+        # Wait for services to be ready
+        sleep 10
+        
+        # Run a simple integration test
+        python -c "
+import os
+import asyncio
+from vocode.streaming.models.telephony import FreeSwitchConfig
+from vocode.streaming.telephony.client.freeswitch_client import FreeSwitchClient
+
+async def test_connection():
+    config = FreeSwitchConfig(
+        api_url='http://localhost:8080',
+        auth_username='freeswitch',
+        auth_password='password'
+    )
+    client = FreeSwitchClient(base_url='http://localhost:8000', maybe_freeswitch_config=config)
+    print('FreeSwitchClient initialized successfully')
+    return True
+
+asyncio.run(test_connection())
+        "
+        
+        # Clean up
+        docker-compose down

@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # FreeSWITCH server for testing
+  freeswitch:
+    image: signalwire/freeswitch:latest
+    container_name: test-freeswitch
+    ports:
+      - "5060:5060/udp"  # SIP
+      - "8021:8021/tcp"  # ESL
+      - "8080:8080/tcp"  # HTTP API
+    volumes:
+      - ./test_config:/etc/freeswitch
+    environment:
+      - FREESWITCH_PASSWORD=ClueCon
+    healthcheck:
+      test: ["CMD-SHELL", "fs_cli -x 'status' | grep -q 'UP'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Redis for testing
+  redis:
+    image: redis:alpine
+    container_name: test-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
