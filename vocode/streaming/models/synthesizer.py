@@ -98,29 +98,42 @@ class GoogleSynthesizerConfig(SynthesizerConfig, type=SynthesizerType.GOOGLE.val
 ELEVEN_LABS_ADAM_VOICE_ID = "pNInz6obpgDQGcFmaJgB"
 
 
+class ElevenLabsVoiceSettings(BaseModel):
+    stability: float = 0.5  # 0-1, higher values make voice more stable, less variance
+    similarity_boost: float = 0.75  # 0-1, higher values make voice more similar to original
+    style: Optional[float] = None  # 0-1, higher values apply more speaking style
+    use_speaker_boost: Optional[bool] = None  # Enhance clarity and target speaker similarity
+
+
 class ElevenLabsSynthesizerConfig(
     SynthesizerConfig, type=SynthesizerType.ELEVEN_LABS.value  # type: ignore
 ):
     api_key: Optional[str] = None
     voice_id: Optional[str] = ELEVEN_LABS_ADAM_VOICE_ID
-    optimize_streaming_latency: Optional[int]
+    optimize_streaming_latency: Optional[int] = None  # 0-4, higher values reduce latency
     experimental_streaming: bool = False
-    stability: Optional[float]
-    similarity_boost: Optional[float]
-    model_id: Optional[str]
+    model_id: Optional[str] = None  # e.g., "eleven_monolingual_v1", "eleven_multilingual_v2"
     experimental_websocket: bool = False
     backchannel_amplitude_factor: float = 0.5
+    
+    # Enhanced voice settings
+    voice_settings: Optional[ElevenLabsVoiceSettings] = None
+    
+    # Multilingual support
+    language: Optional[str] = None  # ISO language code (e.g., "en", "fr", "es")
+    
+    # Voice cloning settings
+    voice_cloning_enabled: bool = False
+    voice_cloning_samples: Optional[List[str]] = None  # List of file paths to audio samples
+    voice_cloning_description: Optional[str] = None  # Description of the voice to be cloned
+    
+    # Retry settings
+    max_retries: int = 3
+    retry_delay: float = 1.0  # seconds
 
     @validator("voice_id")
     def set_name(cls, voice_id):
         return voice_id or ELEVEN_LABS_ADAM_VOICE_ID
-
-    @validator("similarity_boost", always=True)
-    def stability_and_similarity_boost_check(cls, similarity_boost, values):
-        stability = values.get("stability")
-        if (stability is None) != (similarity_boost is None):
-            raise ValueError("Both stability and similarity_boost must be set or not set.")
-        return similarity_boost
 
     @validator("optimize_streaming_latency")
     def optimize_streaming_latency_check(cls, optimize_streaming_latency):
@@ -135,6 +148,12 @@ class ElevenLabsSynthesizerConfig(
                 "backchannel_amplitude_factor must be between 0 (not inclusive) and 1."
             )
         return backchannel_amplitude_factor
+        
+    @validator("voice_cloning_samples")
+    def validate_voice_cloning_samples(cls, voice_cloning_samples, values):
+        if values.get("voice_cloning_enabled") and not voice_cloning_samples:
+            raise ValueError("Voice cloning samples must be provided when voice_cloning_enabled is True")
+        return voice_cloning_samples
 
 
 RIME_DEFAULT_BASE_URL = "https://users.rime.ai/v1/rime-tts"
