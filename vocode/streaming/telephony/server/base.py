@@ -16,6 +16,8 @@ from vocode.streaming.models.telephony import (
     TwilioConfig,
     VonageCallConfig,
     VonageConfig,
+    FreeSwitchCallConfig,
+    FreeSwitchConfig,
 )
 from vocode.streaming.models.transcriber import TranscriberConfig
 from vocode.streaming.synthesizer.abstract_factory import AbstractSynthesizerFactory
@@ -23,6 +25,7 @@ from vocode.streaming.synthesizer.default_factory import DefaultSynthesizerFacto
 from vocode.streaming.telephony.client.abstract_telephony_client import AbstractTelephonyClient
 from vocode.streaming.telephony.client.twilio_client import TwilioClient
 from vocode.streaming.telephony.client.vonage_client import VonageClient
+from vocode.streaming.telephony.client.freeswitch_client import FreeSwitchClient
 from vocode.streaming.telephony.config_manager.base_config_manager import BaseConfigManager
 from vocode.streaming.telephony.server.router.calls import CallsRouter
 from vocode.streaming.telephony.templater import get_connection_twiml
@@ -45,6 +48,10 @@ class TwilioInboundCallConfig(AbstractInboundCallConfig):
 
 class VonageInboundCallConfig(AbstractInboundCallConfig):
     vonage_config: VonageConfig
+
+
+class FreeSwitchInboundCallConfig(AbstractInboundCallConfig):
+    freeswitch_config: FreeSwitchConfig
 
 
 class VonageAnswerRequest(BaseModel):
@@ -159,6 +166,38 @@ class TelephonyServer:
                 record=vonage_config.record,
             )
 
+        async def freeswitch_route(freeswitch_config: FreeSwitchConfig, request: Request):
+            # Parse the incoming request from FreeSwitch
+            request_data = await request.json()
+            call_id = request_data.get("call_id", "unknown")
+            from_number = request_data.get("from", "unknown")
+            to_number = request_data.get("to", "unknown")
+            
+            # Create a call config for FreeSwitch
+            call_config = FreeSwitchCallConfig(
+                transcriber_config=inbound_call_config.transcriber_config
+                or FreeSwitchCallConfig.default_transcriber_config(),
+                agent_config=inbound_call_config.agent_config,
+                synthesizer_config=inbound_call_config.synthesizer_config
+                or FreeSwitchCallConfig.default_synthesizer_config(),
+                freeswitch_config=freeswitch_config,
+                freeswitch_call_id=call_id,
+                to_phone=to_number,
+                from_phone=from_number,
+                direction="inbound",
+            )
+            
+            # Generate a conversation ID and save the config
+            conversation_id = create_conversation_id()
+            await self.config_manager.save_config(conversation_id, call_config)
+            
+            # Return a response with the conversation ID and WebSocket URL
+            return {
+                "conversation_id": conversation_id,
+                "websocket_url": f"wss://{self.base_url}/calls/{conversation_id}/stream",
+                "success": True
+            }
+
         if isinstance(inbound_call_config, TwilioInboundCallConfig):
             logger.info(
                 f"Set up inbound call TwiML at https://{self.base_url}{inbound_call_config.url}"
@@ -169,6 +208,11 @@ class TelephonyServer:
                 f"Set up inbound call NCCO at https://{self.base_url}{inbound_call_config.url}"
             )
             return partial(vonage_route, inbound_call_config.vonage_config)
+        elif isinstance(inbound_call_config, FreeSwitchInboundCallConfig):
+            logger.info(
+                f"Set up inbound call handler for FreeSwitch at https://{self.base_url}{inbound_call_config.url}"
+            )
+            return partial(freeswitch_route, inbound_call_config.freeswitch_config)
         else:
             raise ValueError(f"Unknown inbound call config type {type(inbound_call_config)}")
 
@@ -188,6 +232,11 @@ class TelephonyServer:
                 base_url=self.base_url, maybe_vonage_config=call_config.vonage_config
             )
             await telephony_client.end_call(call_config.vonage_uuid)
+        elif isinstance(call_config, FreeSwitchCallConfig):
+            telephony_client = FreeSwitchClient(
+                base_url=self.base_url, maybe_freeswitch_config=call_config.freeswitch_config
+            )
+            await telephony_client.end_call(call_config.freeswitch_call_id)
         return {"id": conversation_id}
 
     def get_router(self) -> APIRouter:

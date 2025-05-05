@@ -1,0 +1,55 @@
+version: '3'
+
+services:
+  # Vocode server for handling calls
+  vocode-server:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - FREESWITCH_SERVER_URL=http://freeswitch:8080
+      - FREESWITCH_API_KEY=your-api-key
+      - FREESWITCH_SIP_DOMAIN=your-sip-domain
+      - FREESWITCH_WS_ENDPOINT=ws://freeswitch:8080/ws
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - BASE_URL=http://vocode-server:8000
+    volumes:
+      - ./freeswitch_inbound_server.py:/app/freeswitch_inbound_server.py
+    command: python freeswitch_inbound_server.py
+    depends_on:
+      - redis
+      - freeswitch
+    networks:
+      - vocode-network
+
+  # Redis for configuration management
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - vocode-network
+
+  # FreeSwitch server
+  freeswitch:
+    image: signalwire/freeswitch:latest
+    ports:
+      - "5060:5060/udp"  # SIP
+      - "5080:5080/tcp"  # SIP over WebSocket
+      - "8080:8080/tcp"  # HTTP API
+      - "16384-16484:16384-16484/udp"  # RTP
+    volumes:
+      - ./freeswitch_scripts:/etc/freeswitch/scripts
+      - ./freeswitch_scripts/vocode_dialplan.xml:/etc/freeswitch/dialplan/default/vocode.xml
+    environment:
+      - FREESWITCH_PASSWORD=your-password
+    networks:
+      - vocode-network
+
+networks:
+  vocode-network:
+    driver: bridge
