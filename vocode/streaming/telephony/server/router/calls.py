@@ -7,7 +7,7 @@ from loguru import logger
 from vocode import sentry_transaction
 from vocode.streaming.agent.abstract_factory import AbstractAgentFactory
 from vocode.streaming.agent.default_factory import DefaultAgentFactory
-from vocode.streaming.models.telephony import BaseCallConfig, TwilioCallConfig, VonageCallConfig
+from vocode.streaming.models.telephony import BaseCallConfig, TwilioCallConfig, VonageCallConfig, FreeSwitchCallConfig
 from vocode.streaming.synthesizer.abstract_factory import AbstractSynthesizerFactory
 from vocode.streaming.synthesizer.default_factory import DefaultSynthesizerFactory
 from vocode.streaming.telephony.config_manager.base_config_manager import BaseConfigManager
@@ -19,6 +19,9 @@ from vocode.streaming.telephony.conversation.twilio_phone_conversation import (
 )
 from vocode.streaming.telephony.conversation.vonage_phone_conversation import (
     VonagePhoneConversation,
+)
+from vocode.streaming.telephony.conversation.freeswitch_phone_conversation import (
+    FreeSwitchPhoneConversation,
 )
 from vocode.streaming.transcriber.abstract_factory import AbstractTranscriberFactory
 from vocode.streaming.transcriber.default_factory import DefaultTranscriberFactory
@@ -94,6 +97,10 @@ class CallsRouter(BaseRouter):
                 output_to_speaker=call_config.output_to_speaker,
                 direction=call_config.direction,
             )
+        elif isinstance(call_config, FreeSwitchCallConfig):
+            # For FreeSwitch, we need an audio_sink function
+            # This will be provided when creating the conversation from the FreeSwitch handler
+            raise ValueError("FreeSwitchPhoneConversation requires an audio_sink function")
         else:
             raise ValueError(f"Unknown call config type {call_config.type}")
 

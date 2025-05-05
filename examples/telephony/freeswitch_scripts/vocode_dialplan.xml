@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FreeSwitch Dialplan Configuration for Vocode Integration
+  
+  This configuration sets up FreeSwitch to route calls to Vocode for AI-powered conversations.
+  
+  Installation:
+  1. Copy this file to /etc/freeswitch/dialplan/default/
+  2. Restart FreeSwitch or reload the dialplan with 'reloadxml'
+  
+  Customize the destination_number expressions to match your phone numbers.
+-->
+<include>
+  <!-- Vocode AI Assistant -->
+  <extension name="vocode_ai_assistant">
+    <condition field="destination_number" expression="^(1234)$">
+      <action application="set" data="hangup_after_bridge=true"/>
+      <action application="set" data="continue_on_fail=true"/>
+      <action application="set" data="vocode_url=https://your-vocode-server/inbound/freeswitch"/>
+      <action application="set" data="record=true"/>
+      <action application="lua" data="vocode_bridge.lua"/>
+    </condition>
+  </extension>
+  
+  <!-- Vocode Customer Service -->
+  <extension name="vocode_customer_service">
+    <condition field="destination_number" expression="^(5678)$">
+      <action application="set" data="hangup_after_bridge=true"/>
+      <action application="set" data="continue_on_fail=true"/>
+      <action application="set" data="vocode_url=https://your-vocode-server/inbound/freeswitch"/>
+      <action application="set" data="record=true"/>
+      <action application="set" data="agent_type=customer_service"/>
+      <action application="lua" data="vocode_bridge.lua"/>
+    </condition>
+  </extension>
+  
+  <!-- Vocode Appointment Scheduler -->
+  <extension name="vocode_appointment_scheduler">
+    <condition field="destination_number" expression="^(9012)$">
+      <action application="set" data="hangup_after_bridge=true"/>
+      <action application="set" data="continue_on_fail=true"/>
+      <action application="set" data="vocode_url=https://your-vocode-server/inbound/freeswitch"/>
+      <action application="set" data="record=true"/>
+      <action application="set" data="agent_type=appointment_scheduler"/>
+      <action application="lua" data="vocode_bridge.lua"/>
+    </condition>
+  </extension>
+  
+  <!-- Vocode Outbound Call Receiver -->
+  <extension name="vocode_outbound_receiver">
+    <condition field="destination_number" expression="^(3456)$">
+      <action application="answer"/>
+      <action application="sleep" data="1000"/>
+      <action application="set" data="hangup_after_bridge=true"/>
+      <action application="set" data="continue_on_fail=true"/>
+      <action application="set" data="vocode_url=https://your-vocode-server/inbound/freeswitch"/>
+      <action application="set" data="record=true"/>
+      <action application="set" data="agent_type=outbound_receiver"/>
+      <action application="lua" data="vocode_bridge.lua"/>
+    </condition>
+  </extension>
+</include>
