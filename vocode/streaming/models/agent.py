@@ -56,6 +56,9 @@ class AgentType(str, Enum):
     WEBSOCKET_USER_IMPLEMENTED = "agent_websocket_user_implemented"
     ACTION = "agent_action"
     LANGCHAIN = "agent_langchain"
+    ENHANCED_OPENAI = "agent_enhanced_openai"
+    ENHANCED_GROQ = "agent_enhanced_groq"
+    ENHANCED_CLAUDE = "agent_enhanced_claude"
 
 
 class FillerAudioConfig(BaseModel):
@@ -166,6 +169,70 @@ class GroqAgentConfig(AgentConfig, type=AgentType.GROQ.value):  # type: ignore
     use_backchannels: bool = False
     backchannel_probability: float = 0.7
     first_response_filler_message: Optional[str] = None
+
+
+class EnhancedOpenAIAgentConfig(AgentConfig, type=AgentType.ENHANCED_OPENAI.value):  # type: ignore
+    openai_api_key: Optional[str] = None
+    organization_id: Optional[str] = None
+    prompt_preamble: str
+    model_name: str = OPENAI_GPT_35_TURBO_1106_MODEL_NAME
+    base_url_override: Optional[str] = None
+    temperature: float = LLM_AGENT_DEFAULT_TEMPERATURE
+    max_tokens: int = LLM_AGENT_DEFAULT_MAX_TOKENS
+    vector_db_config: Optional[VectorDBConfig] = None
+    use_backchannels: bool = False
+    backchannel_probability: float = 0.7
+    first_response_filler_message: Optional[str] = None
+    request_timeout: Optional[float] = None
+    
+    # Advanced parameters
+    seed: Optional[int] = None
+    top_p: Optional[float] = None
+    frequency_penalty: Optional[float] = None
+    presence_penalty: Optional[float] = None
+    logit_bias: Optional[Dict[str, float]] = None
+    response_format: Optional[Dict[str, str]] = None
+    function_call: Optional[Union[str, Dict[str, str]]] = None
+
+
+class EnhancedGroqAgentConfig(AgentConfig, type=AgentType.ENHANCED_GROQ.value):  # type: ignore
+    groq_api_key: Optional[str] = None
+    prompt_preamble: str
+    model_name: str = GROQ_DEFAULT_MODEL_NAME
+    base_url_override: Optional[str] = None
+    temperature: float = LLM_AGENT_DEFAULT_TEMPERATURE
+    max_tokens: int = LLM_AGENT_DEFAULT_MAX_TOKENS
+    vector_db_config: Optional[VectorDBConfig] = None
+    use_backchannels: bool = False
+    backchannel_probability: float = 0.7
+    first_response_filler_message: Optional[str] = None
+    request_timeout: Optional[float] = None
+    
+    # Advanced parameters
+    top_p: Optional[float] = None
+    frequency_penalty: Optional[float] = None
+    presence_penalty: Optional[float] = None
+    stop_sequences: Optional[List[str]] = None
+    function_call: Optional[Union[str, Dict[str, str]]] = None
+
+
+class EnhancedClaudeAgentConfig(AgentConfig, type=AgentType.ENHANCED_CLAUDE.value):  # type: ignore
+    anthropic_api_key: Optional[str] = None
+    prompt_preamble: str
+    model_name: str = ANTHROPIC_CLAUDE_3_HAIKU_MODEL_NAME
+    base_url_override: Optional[str] = None
+    max_tokens: int = LLM_AGENT_DEFAULT_MAX_TOKENS
+    temperature: float = LLM_AGENT_DEFAULT_TEMPERATURE
+    vector_db_config: Optional[VectorDBConfig] = None
+    use_backchannels: bool = False
+    backchannel_probability: float = 0.7
+    first_response_filler_message: Optional[str] = None
+    request_timeout: Optional[float] = None
+    
+    # Advanced parameters
+    top_p: Optional[float] = None
+    top_k: Optional[int] = None
+    stop_sequences: Optional[List[str]] = None
 
 
 class InformationRetrievalAgentConfig(
