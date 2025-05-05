@@ -221,12 +221,16 @@ class BarkSynthesizerConfig(SynthesizerConfig, type=SynthesizerType.BARK.value):
 DEFAULT_POLLY_LANGUAGE_CODE = "en-US"
 DEFAULT_POLLY_VOICE_ID = "Matthew"
 DEFAULT_POLLY_SAMPLING_RATE = SamplingRate.RATE_16000.value
+DEFAULT_POLLY_ENGINE = "standard"  # can be "standard" or "neural"
 
 
 class PollySynthesizerConfig(SynthesizerConfig, type=SynthesizerType.POLLY.value):  # type: ignore
     language_code: str = DEFAULT_POLLY_LANGUAGE_CODE
     voice_id: str = DEFAULT_POLLY_VOICE_ID
     sampling_rate: int = DEFAULT_POLLY_SAMPLING_RATE
+    engine: str = DEFAULT_POLLY_ENGINE  # "standard" or "neural"
+    use_ssml: bool = False  # Whether to interpret the text as SSML
+    lexicon_names: Optional[List[str]] = None  # List of lexicon names to apply
 
 
 DEFAULT_CARTESIA_MODEL_ID = "sonic-english"
