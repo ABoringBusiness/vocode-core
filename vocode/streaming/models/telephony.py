@@ -16,6 +16,9 @@ from vocode.streaming.telephony.constants import (
     VONAGE_AUDIO_ENCODING,
     VONAGE_CHUNK_SIZE,
     VONAGE_SAMPLING_RATE,
+    FREESWITCH_AUDIO_ENCODING,
+    FREESWITCH_CHUNK_SIZE,
+    FREESWITCH_SAMPLING_RATE,
 )
 
 
@@ -37,6 +40,13 @@ class VonageConfig(TelephonyProviderConfig):
     private_key: str
 
 
+class FreeSwitchConfig(TelephonyProviderConfig):
+    host: str
+    port: int
+    password: str
+    extra_params: Optional[Dict[str, Any]] = {}
+
+
 class CallEntity(BaseModel):
     phone_number: str
 
@@ -49,15 +59,18 @@ class CreateInboundCall(BaseModel):
     synthesizer_config: Optional[SynthesizerConfig] = None
     vonage_uuid: Optional[str] = None
     twilio_sid: Optional[str] = None
+    freeswitch_uuid: Optional[str] = None
     conversation_id: Optional[str] = None
     twilio_config: Optional[TwilioConfig] = None
     vonage_config: Optional[VonageConfig] = None
+    freeswitch_config: Optional[FreeSwitchConfig] = None
 
 
 class EndOutboundCall(BaseModel):
     call_id: str
     vonage_config: Optional[VonageConfig] = None
     twilio_config: Optional[TwilioConfig] = None
+    freeswitch_config: Optional[FreeSwitchConfig] = None
 
 
 class CreateOutboundCall(BaseModel):
@@ -69,6 +82,7 @@ class CreateOutboundCall(BaseModel):
     conversation_id: Optional[str] = None
     vonage_config: Optional[VonageConfig] = None
     twilio_config: Optional[TwilioConfig] = None
+    freeswitch_config: Optional[FreeSwitchConfig] = None
     # TODO add IVR/etc.
 
 
@@ -83,12 +97,14 @@ class DialIntoZoomCall(BaseModel):
     conversation_id: Optional[str] = None
     vonage_config: Optional[VonageConfig] = None
     twilio_config: Optional[TwilioConfig] = None
+    freeswitch_config: Optional[FreeSwitchConfig] = None
 
 
 class CallConfigType(str, Enum):
     BASE = "call_config_base"
     TWILIO = "call_config_twilio"
     VONAGE = "call_config_vonage"
+    FREESWITCH = "call_config_freeswitch"
 
 
 PhoneCallDirection = Literal["inbound", "outbound"]
@@ -161,4 +177,28 @@ class VonageCallConfig(BaseCallConfig, type=CallConfigType.VONAGE.value):  # typ
         )
 
 
-TelephonyConfig = Union[TwilioConfig, VonageConfig]
+class FreeSwitchCallConfig(BaseCallConfig, type=CallConfigType.FREESWITCH.value):  # type: ignore
+    freeswitch_config: FreeSwitchConfig
+    freeswitch_uuid: str
+    output_to_speaker: bool = False
+
+    @staticmethod
+    def default_transcriber_config():
+        return DeepgramTranscriberConfig(
+            sampling_rate=FREESWITCH_SAMPLING_RATE,
+            audio_encoding=FREESWITCH_AUDIO_ENCODING,
+            chunk_size=FREESWITCH_CHUNK_SIZE,
+            model="phonecall",
+            tier="nova",
+            endpointing_config=PunctuationEndpointingConfig(),
+        )
+
+    @staticmethod
+    def default_synthesizer_config():
+        return AzureSynthesizerConfig(
+            sampling_rate=FREESWITCH_SAMPLING_RATE,
+            audio_encoding=FREESWITCH_AUDIO_ENCODING,
+        )
+
+
+TelephonyConfig = Union[TwilioConfig, VonageConfig, FreeSwitchConfig]

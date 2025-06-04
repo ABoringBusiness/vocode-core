@@ -51,6 +51,7 @@ google-cloud-speech = { version = "^2.26.0", optional = true }
 # Telephony
 twilio = { version = "^9.1.0", optional = true }
 vonage = { version = "^3.14.0", optional = true }
+freeswitchESL = { version = "^1.4.18", optional = true }
 
 # Langchain
 langchain = { version = "^0.2.3", optional = true }
@@ -91,7 +92,7 @@ synthesizers = [
     "cartesia",
 ]
 transcribers = ["google-cloud-speech"]
-telephony = ["twilio", "vonage"]
+telephony = ["twilio", "vonage", "freeswitchESL"]
 langchain = ["langchain", "langchain-community"]
 langchain-extras = ["langchain-openai", "langchain-anthropic", "langchain-google-vertexai"]
 all = [
@@ -100,6 +101,7 @@ all = [
     "google-cloud-speech",
     "twilio",
     "vonage",
+    "freeswitchESL",
     "langchain",
     "langchain-community",
     "langchain-openai",
