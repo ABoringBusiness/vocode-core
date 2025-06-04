@@ -11,3 +11,9 @@ VONAGE_AUDIO_ENCODING = AudioEncoding.LINEAR16
 VONAGE_CHUNK_SIZE = 640  # 20ms at 16kHz with 16bit samples
 VONAGE_CONTENT_TYPE = "audio/l16;rate=16000"
 PCM_SILENCE_BYTE = b"\x00"
+
+# FreeSWITCH constants
+FREESWITCH_SAMPLING_RATE: int = SamplingRate.RATE_8000.value
+FREESWITCH_AUDIO_ENCODING = AudioEncoding.MULAW
+FREESWITCH_CHUNK_SIZE = 20 * 160  # 20ms at 8kHz with 8bit samples
+FREESWITCH_CONTENT_TYPE = "audio/basic"
